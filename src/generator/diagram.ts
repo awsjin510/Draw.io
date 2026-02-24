@@ -28,9 +28,9 @@ export async function generateDiagram(options: GenerateOptions): Promise<{
   let attempts = 1;
 
   while (!validation.valid && attempts <= MAX_RETRIES) {
-    const retryContext = `The previously generated XML has the following validation errors:\n\n${validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n\nPlease fix these errors and regenerate the complete draw.io XML. Remember:\n- Output ONLY valid XML, no explanatory text\n- Ensure all mxCell IDs are unique\n- Ensure all edge source/target reference existing cell IDs\n- Include VPC, ALB or Internet Gateway\n- Keep diagram width under 3000px\n\nOriginal request: ${description}`;
+    const errorFeedback = `The previously generated XML has the following validation errors:\n\n${validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n\nPlease fix ALL of these errors and regenerate the complete draw.io XML. Remember:\n- Output ONLY valid XML, no explanatory text\n- Ensure all mxCell IDs are unique\n- Ensure all edge source/target reference existing cell IDs\n- Include VPC, ALB or Internet Gateway\n- Keep diagram width under 3000px\n\nOriginal request: ${description}`;
 
-    xml = await generateDiagramXML(userPrompt, callbacks, retryContext);
+    xml = await generateDiagramXML(userPrompt, callbacks, { previousXml: xml, errorFeedback });
     validation = await validateDrawioXML(xml);
     attempts++;
   }

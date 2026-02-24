@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MODEL = 'claude-sonnet-4-5-20250514';
+const MODEL = 'claude-sonnet-4-5-20250929';
 const MAX_TOKENS = 16000;
 
 function loadExamples(): string {
@@ -69,7 +69,7 @@ export interface StreamCallbacks {
 export async function generateDiagramXML(
   userPrompt: string,
   callbacks?: StreamCallbacks,
-  retryContext?: string,
+  retryContext?: { previousXml: string; errorFeedback: string } | string,
 ): Promise<string> {
   const client = new Anthropic();
   const systemPrompt = getSystemPrompt() + loadExamples();
@@ -79,10 +79,19 @@ export async function generateDiagramXML(
   ];
 
   if (retryContext) {
-    messages.push(
-      { role: 'assistant', content: 'I will generate the corrected draw.io XML.' },
-      { role: 'user', content: retryContext },
-    );
+    if (typeof retryContext === 'string') {
+      // Legacy string format
+      messages.push(
+        { role: 'assistant', content: 'I will generate the corrected draw.io XML.' },
+        { role: 'user', content: retryContext },
+      );
+    } else {
+      // Structured format: show Claude its own output and the errors
+      messages.push(
+        { role: 'assistant', content: retryContext.previousXml },
+        { role: 'user', content: retryContext.errorFeedback },
+      );
+    }
   }
 
   callbacks?.onStart?.();
