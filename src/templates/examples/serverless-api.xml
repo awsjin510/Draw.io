@@ -1,0 +1,179 @@
+<mxfile host="app.diagrams.net" modified="" agent="" etag="" version="24.0.0" type="device">
+  <diagram name="AWS Architecture" id="serverless-api">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="2000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Region -->
+        <mxCell id="region-1" value="ap-northeast-1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#00A4A6;fillColor=none;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=14;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="2000" height="1400" as="geometry"/>
+        </mxCell>
+
+        <!-- Users -->
+        <mxCell id="users" value="Users" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#232F3E;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users" vertex="1" parent="1">
+          <mxGeometry x="980" y="20" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Route 53 -->
+        <mxCell id="route53-1" value="Route 53&#xa;DNS" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#8C4FFF;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53" vertex="1" parent="1">
+          <mxGeometry x="840" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- CloudFront -->
+        <mxCell id="cloudfront-1" value="CloudFront&#xa;CDN" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#8C4FFF;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront" vertex="1" parent="1">
+          <mxGeometry x="980" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- WAF -->
+        <mxCell id="waf-1" value="AWS WAF" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#DD344C;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.waf" vertex="1" parent="1">
+          <mxGeometry x="1120" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Cognito -->
+        <mxCell id="cognito-1" value="Cognito&#xa;Auth" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#DD344C;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito" vertex="1" parent="1">
+          <mxGeometry x="1300" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- API Gateway -->
+        <mxCell id="apigw-1" value="API Gateway&#xa;REST API" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#E7157B;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway" vertex="1" parent="region-1">
+          <mxGeometry x="940" y="80" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- VPC -->
+        <mxCell id="vpc-1" value="VPC (10.0.0.0/16)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#8C4FFF;fillColor=#F4EBFF;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=14;" vertex="1" parent="region-1">
+          <mxGeometry x="60" y="200" width="1880" height="1100" as="geometry"/>
+        </mxCell>
+
+        <!-- AZ-1 -->
+        <mxCell id="az-1" value="Availability Zone 1" style="fillColor=#EFF0F3;strokeColor=#545B64;dashed=1;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=12;" vertex="1" parent="vpc-1">
+          <mxGeometry x="40" y="60" width="860" height="1000" as="geometry"/>
+        </mxCell>
+
+        <!-- AZ-2 -->
+        <mxCell id="az-2" value="Availability Zone 2" style="fillColor=#EFF0F3;strokeColor=#545B64;dashed=1;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=12;" vertex="1" parent="vpc-1">
+          <mxGeometry x="960" y="60" width="860" height="1000" as="geometry"/>
+        </mxCell>
+
+        <!-- Private Subnet AZ1 -->
+        <mxCell id="priv-subnet-1" value="Private Subnet (10.0.10.0/24)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_private_subnet;strokeColor=#147EBA;fillColor=#E6F5FC;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=12;" vertex="1" parent="az-1">
+          <mxGeometry x="30" y="60" width="800" height="400" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda Functions AZ1 -->
+        <mxCell id="lambda-get" value="Lambda&#xa;GET /items" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#ED7515;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda" vertex="1" parent="priv-subnet-1">
+          <mxGeometry x="100" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="lambda-post" value="Lambda&#xa;POST /items" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#ED7515;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda" vertex="1" parent="priv-subnet-1">
+          <mxGeometry x="300" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="lambda-delete" value="Lambda&#xa;DELETE /items" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#ED7515;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda" vertex="1" parent="priv-subnet-1">
+          <mxGeometry x="500" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Isolated Subnet AZ1 -->
+        <mxCell id="iso-subnet-1" value="Isolated Subnet (10.0.20.0/24)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_private_subnet;strokeColor=#E07000;fillColor=#FFF2E6;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=12;" vertex="1" parent="az-1">
+          <mxGeometry x="30" y="520" width="800" height="420" as="geometry"/>
+        </mxCell>
+
+        <!-- DynamoDB -->
+        <mxCell id="dynamodb-1" value="DynamoDB&#xa;Items Table" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#C925D1;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb" vertex="1" parent="iso-subnet-1">
+          <mxGeometry x="200" y="120" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- S3 -->
+        <mxCell id="s3-1" value="S3&#xa;Data Bucket" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#3F8624;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3" vertex="1" parent="iso-subnet-1">
+          <mxGeometry x="500" y="120" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Private Subnet AZ2 -->
+        <mxCell id="priv-subnet-2" value="Private Subnet (10.0.11.0/24)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_private_subnet;strokeColor=#147EBA;fillColor=#E6F5FC;verticalLabelPosition=top;verticalAlign=bottom;align=center;spacingTop=25;fontStyle=1;fontSize=12;" vertex="1" parent="az-2">
+          <mxGeometry x="30" y="60" width="800" height="400" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda AZ2 -->
+        <mxCell id="lambda-get-2" value="Lambda&#xa;GET /items" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#ED7515;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda" vertex="1" parent="priv-subnet-2">
+          <mxGeometry x="100" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="lambda-post-2" value="Lambda&#xa;POST /items" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#ED7515;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda" vertex="1" parent="priv-subnet-2">
+          <mxGeometry x="300" y="100" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- CloudWatch -->
+        <mxCell id="cw-1" value="CloudWatch&#xa;Monitoring" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#E7157B;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch" vertex="1" parent="1">
+          <mxGeometry x="2120" y="400" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- CloudTrail -->
+        <mxCell id="ct-1" value="CloudTrail" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=none;fillColor=#E7157B;labelBackgroundColor=#ffffff;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudtrail" vertex="1" parent="1">
+          <mxGeometry x="2120" y="540" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Connections -->
+        <!-- Users → Route 53 -->
+        <mxCell id="conn-1" value="DNS" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="users" target="route53-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Users → CloudFront -->
+        <mxCell id="conn-2" value="HTTPS:443" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="users" target="cloudfront-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- CloudFront → WAF -->
+        <mxCell id="conn-3" value="HTTPS:443" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="cloudfront-1" target="waf-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- WAF → API Gateway -->
+        <mxCell id="conn-4" value="HTTPS:443" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="waf-1" target="apigw-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- API GW → Cognito -->
+        <mxCell id="conn-5" value="Auth" style="endArrow=classic;startArrow=classic;html=1;strokeWidth=1;strokeColor=#666666;dashed=1;" edge="1" source="apigw-1" target="cognito-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- API Gateway → Lambda GET -->
+        <mxCell id="conn-6" value="GET /items" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="apigw-1" target="lambda-get" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- API Gateway → Lambda POST -->
+        <mxCell id="conn-7" value="POST /items" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="apigw-1" target="lambda-post" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- API Gateway → Lambda DELETE -->
+        <mxCell id="conn-8" value="DELETE /items" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="apigw-1" target="lambda-delete" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda → DynamoDB -->
+        <mxCell id="conn-9" value="DynamoDB API" style="endArrow=classic;startArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="lambda-get" target="dynamodb-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda POST → DynamoDB -->
+        <mxCell id="conn-10" value="DynamoDB API" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="lambda-post" target="dynamodb-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda POST → S3 -->
+        <mxCell id="conn-11" value="S3 API" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#232F3E;" edge="1" source="lambda-post" target="s3-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Lambda → CloudWatch -->
+        <mxCell id="conn-12" value="Logs/Metrics" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#666666;dashed=1;" edge="1" source="lambda-get" target="cw-1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
