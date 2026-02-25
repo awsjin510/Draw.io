@@ -350,9 +350,10 @@ const SYSTEM_PROMPT = `你是一位 AWS 資深解決方案架構師，專精於�
 - 所有 XML 屬性值中的特殊字元必須正確跳脫：
   & → &amp;   < → &lt;   > → &gt;   " → &quot;   ' → &apos;
 - 範例：label="EC2 &amp; RDS"（正確）  label="EC2 & RDS"（錯誤！會導致解析失敗）
+- 範例：value="A &lt; B"（正確）  value="A < B"（錯誤！ < 在屬性值中必須用 &lt;）
+- label / value 裡的 HTML 標籤也必須跳脫：value="&lt;b&gt;粗體&lt;/b&gt;"（正確）
 - style 屬性中的分號 ; 不需要跳脫（那是 draw.io 的分隔符），但 & 仍需寫成 &amp;
-- value / label 屬性中若包含 HTML，內部的引號必須用 &quot; 跳脫
-- 嚴禁在任何屬性值中使用未跳脫的 & < > " 字元
+- 嚴禁在任何屬性值中放入原始的 & < > " 字元（必須用實體跳脫）
 
 【架構規則】
 1. 輸出完整的 <mxfile> XML，結構完整可直接在 diagrams.net / draw.io 桌面版開啟
@@ -750,6 +751,11 @@ function sanitizeXML(xml) {
   }
   xml = result;
 
+  // Final safety-net: escape any remaining < that cannot start a valid XML tag.
+  // Valid XML tag openers: <letter, <_, </, <!, <?
+  // Anything else (< followed by space, <-, <=, << etc.) is invalid and must be escaped.
+  xml = xml.replace(/<(?![a-zA-Z_\/!?])/g, '&lt;');
+
   // If XML was truncated (no closing </mxfile>), try to close it
   if (xml.includes('<mxfile') && !xml.includes('</mxfile>')) {
     if (!xml.includes('</root>'))          xml += '</root>';
@@ -762,7 +768,7 @@ function sanitizeXML(xml) {
 }
 
 /**
- * Validate XML with DOMParser.  Returns { valid: bool, error?: string }.
+ * Validate XML with DOMParser.  Returns { valid: bool, error?: string, context?: string }.
  */
 function validateXML(xmlStr) {
   if (!xmlStr) return { valid: false, error: '未找到有效的 XML 內容' };
@@ -770,10 +776,25 @@ function validateXML(xmlStr) {
   const doc = parser.parseFromString(xmlStr, 'application/xml');
   const errNode = doc.querySelector('parsererror');
   if (errNode) {
-    // Grab the first meaningful line of the parser error
-    const msg = errNode.textContent.trim().split('\n')
-      .find(l => l.trim().length > 0) || errNode.textContent.trim();
-    return { valid: false, error: msg };
+    const fullText = errNode.textContent.trim();
+    const msg = fullText.split('\n').find(l => l.trim().length > 0) || fullText;
+
+    // Extract line/column from error message and show context
+    const lineMatch = msg.match(/line\s+(\d+)/i);
+    const colMatch  = msg.match(/column\s+(\d+)/i);
+    let context = '';
+    if (lineMatch) {
+      const lineNum = parseInt(lineMatch[1], 10) - 1; // 0-indexed
+      const col     = colMatch ? parseInt(colMatch[1], 10) : 0;
+      const lines   = xmlStr.split('\n');
+      const badLine = lines[lineNum] || '';
+      // Show up to 80 chars centered around the error column
+      const start   = Math.max(0, col - 40);
+      const snippet = badLine.slice(start, start + 80);
+      context = `\n錯誤位置：…${snippet}…`;
+    }
+
+    return { valid: false, error: msg + context };
   }
   if (!doc.querySelector('mxfile')) {
     return { valid: false, error: '缺少 <mxfile> 根元素，XML 結構不完整' };
