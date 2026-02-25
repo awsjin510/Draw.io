@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+output/*.drawio
+*.js.map
+*.d.ts.map
