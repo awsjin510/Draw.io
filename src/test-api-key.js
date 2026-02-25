@@ -14,11 +14,53 @@ console.log("");
 
 const client = new Anthropic({ apiKey });
 
+// Try multiple models to find one that works
+const MODELS_TO_TRY = [
+  "claude-sonnet-4-5-20250514",
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-sonnet-20240620",
+  "claude-3-haiku-20240307",
+  "claude-3-5-haiku-20241022",
+  "claude-3-opus-20240229",
+];
+
+let workingModel = null;
+
+console.log("[Test 0] Finding available model...");
+for (const model of MODELS_TO_TRY) {
+  try {
+    process.stdout.write(`  Trying ${model}... `);
+    await client.messages.create({
+      model,
+      max_tokens: 10,
+      messages: [{ role: "user", content: "Hi" }],
+    });
+    console.log("OK");
+    workingModel = model;
+    break;
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) {
+      console.error("\n\nAuthentication failed - your API key is invalid or expired.");
+      console.error("Please check your key at: https://console.anthropic.com/settings/keys");
+      process.exit(1);
+    }
+    console.log(`not available (${e.status || "error"})`);
+  }
+}
+
+if (!workingModel) {
+  console.error("No available model found. Your API key may have restricted access.");
+  process.exit(1);
+}
+
+console.log(`  Using model: ${workingModel}`);
+console.log("");
+
 try {
   // Test 1: Basic API call
-  console.log("[Test 1] Basic API call (claude-sonnet-4-5)...");
+  console.log(`[Test 1] Basic API call (${workingModel})...`);
   const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250514",
+    model: workingModel,
     max_tokens: 100,
     messages: [{ role: "user", content: "Reply with exactly: API_KEY_VALID" }],
   });
@@ -37,7 +79,7 @@ try {
   console.log("[Test 2] Streaming API call...");
   let streamedText = "";
   const stream = client.messages.stream({
-    model: "claude-sonnet-4-5-20250514",
+    model: workingModel,
     max_tokens: 100,
     messages: [{ role: "user", content: "Say hello in one sentence." }],
   });
@@ -53,7 +95,7 @@ try {
   // Test 3: System prompt test (for diagram generator use case)
   console.log("[Test 3] System prompt with AWS architecture context...");
   const archResponse = await client.messages.create({
-    model: "claude-sonnet-4-5-20250514",
+    model: workingModel,
     max_tokens: 200,
     system: "You are an AWS Solutions Architect. Reply in JSON format with a list of AWS services.",
     messages: [
