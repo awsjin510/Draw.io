@@ -340,24 +340,34 @@ const SYSTEM_PROMPT = `你是一位 AWS 資深解決方案架構師，專精於�
 
 你的任務是將使用者的需求轉換為 draw.io XML 格式的 AWS 架構圖。
 
-嚴格遵守以下規則：
-1. 輸出必須是完整合法的 draw.io XML，可直接在 diagrams.net 或 draw.io 桌面版開啟使用
-2. 使用 mxgraph.aws4.* 官方圖示（resIcon=mxgraph.aws4.xxx）
-3. 架構必須包含：VPC 容器、至少 2 個 AZ（Availability Zone）、適當的 Subnet 分層（Public/Private/Isolated）
-4. 每個元件需標示服務名稱與規格（如 t3.medium、db.r6g.large）
-5. 佈局從上到下：Internet Gateway → CloudFront/WAF → Public Subnet（ALB, NAT GW）→ Private Subnet（EC2/ECS/Lambda）→ Isolated Subnet（RDS/ElastiCache）
-6. 包含連線箭頭，標示協定/Port（例如 HTTPS:443、MySQL:3306）
-7. 包含 CloudWatch 監控（Well-Architected 卓越運營支柱）
-8. 輸出格式：只回傳 XML，絕對不包含任何說明文字、markdown code block 或前綴
+【絕對禁止】
+- 禁止輸出任何說明文字、前言、結語
+- 禁止使用 markdown 語法（禁止 \`\`\`xml、\`\`\` 等代碼塊）
+- 禁止輸出 XML 以外的任何內容
+- 你的回應必須直接從 host="app.diagrams.net" 的屬性繼續（因為 <mxfile 已由系統提供）
 
-XML 根結構必須為：
-<mxfile><diagram name="AWS Architecture"><mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
-  <root>
-    <mxCell id="0"/>
-    <mxCell id="1" parent="0"/>
-    <!-- 所有元件放在此處 -->
-  </root>
-</mxGraphModel></diagram></mxfile>`;
+【架構規則】
+1. 繼續完成 <mxfile> XML，結構完整可直接在 diagrams.net / draw.io 桌面版開啟
+2. 使用 mxgraph.aws4.* 官方圖示（shape=mxgraph.aws4.resourceIcon; resIcon=mxgraph.aws4.xxx）
+3. 包含：VPC 容器、至少 2 個 AZ、Public/Private/Isolated Subnet 分層
+4. 每個元件標示服務名稱與規格（t3.medium、db.r6g.large 等）
+5. 佈局由上到下：Internet → CloudFront/WAF → Public Subnet（ALB, NAT GW）→ Private Subnet → Isolated Subnet（DB）
+6. 連線箭頭需標示協定/Port（HTTPS:443、MySQL:3306）
+7. 包含 CloudWatch 監控
+8. 所有 mxCell id 必須唯一，parent="1" 為根層級
+
+【必須完成的 XML 結構】
+host="app.diagrams.net" modified="2024-01-01T00:00:00.000Z" type="device" version="21.6.5">
+  <diagram name="AWS Architecture" id="aws-arch">
+    <mxGraphModel dx="1654" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        [在此放置所有 AWS 元件的 mxCell]
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>`;
 
 const EXAMPLES = [
   {
@@ -508,7 +518,8 @@ async function generateDiagram() {
   if (!desc) { showGenStatus('請輸入架構描述', 'warning'); return; }
 
   isGenerating = true;
-  generatedXML = '';
+  // Prefill: Claude will continue from '<mxfile', so we start with it
+  generatedXML = '<mxfile ';
 
   // UI: loading state
   const btn = document.getElementById('generateBtn');
@@ -540,7 +551,11 @@ async function generateDiagram() {
         max_tokens: 8192,
         stream: true,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: desc }]
+        messages: [
+          { role: 'user', content: desc },
+          // Prefill: force Claude to continue from '<mxfile ' — no preamble possible
+          { role: 'assistant', content: '<mxfile ' }
+        ]
       })
     });
 
@@ -582,12 +597,26 @@ async function generateDiagram() {
       }
     }
 
-    // Success
+    // Success — clean and validate
     document.getElementById('progressBar').style.display = 'none';
     document.getElementById('tokenInfo').textContent =
       `Token 消耗：輸入 ${inputTokens} + 輸出 ${outputTokens} = 共 ${inputTokens + outputTokens}`;
+
+    const cleaned = cleanXML(generatedXML);
+    const { valid, error: xmlErr } = validateXML(cleaned);
+
+    // Show cleaned XML in output box
+    const xmlOut2 = document.getElementById('xmlOutput');
+    xmlOut2.className = 'xml-output';
+    xmlOut2.textContent = cleaned || generatedXML;
+
     setOutputButtons(false); // enabled
-    showGenStatus('✓ 架構圖生成完成！可下載或在 draw.io 預覽', 'success');
+
+    if (valid) {
+      showGenStatus('✓ 架構圖生成完成，XML 驗證通過！可下載或在 draw.io 預覽', 'success');
+    } else {
+      showGenStatus(`⚠️ XML 驗證警告：${xmlErr}。若下載後無法開啟，請點「重新生成」`, 'warning');
+    }
 
   } catch (err) {
     document.getElementById('progressBar').style.display = 'none';
@@ -614,19 +643,67 @@ function showGenStatus(msg, type) {
 }
 
 // ─────────────────────────────────────────────
+//  XML Processing
+// ─────────────────────────────────────────────
+
+/**
+ * Strip markdown fences and extract only the <mxfile>...</mxfile> block.
+ * Falls back to wrapping <mxGraphModel> if <mxfile> is missing.
+ */
+function cleanXML(raw) {
+  // 1. Remove markdown code fences  (```xml ... ``` or ``` ... ```)
+  let text = raw
+    .replace(/^```(?:xml|XML)?\s*\r?\n?/gm, '')
+    .replace(/\r?\n?```\s*$/gm, '');
+
+  // 2. Extract <mxfile ...> ... </mxfile>
+  const mxStart = text.indexOf('<mxfile');
+  const mxEnd   = text.lastIndexOf('</mxfile>');
+  if (mxStart !== -1 && mxEnd !== -1) {
+    return text.slice(mxStart, mxEnd + 9).trim();
+  }
+
+  // 3. Fallback: find <mxGraphModel> and wrap it in a proper mxfile shell
+  const gmStart = text.indexOf('<mxGraphModel');
+  const gmEnd   = text.lastIndexOf('</mxGraphModel>');
+  if (gmStart !== -1 && gmEnd !== -1) {
+    const inner = text.slice(gmStart, gmEnd + 15);
+    return `<mxfile host="app.diagrams.net" type="device" version="21.6.5">` +
+           `<diagram name="AWS Architecture" id="aws-arch">${inner}</diagram></mxfile>`;
+  }
+
+  // 4. Nothing recognisable found — return trimmed text as-is
+  return text.trim();
+}
+
+/**
+ * Validate XML with DOMParser.  Returns { valid: bool, error?: string }.
+ */
+function validateXML(xmlStr) {
+  if (!xmlStr) return { valid: false, error: '未找到有效的 XML 內容' };
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, 'application/xml');
+  const errNode = doc.querySelector('parsererror');
+  if (errNode) {
+    // Grab the first meaningful line of the parser error
+    const msg = errNode.textContent.trim().split('\n')
+      .find(l => l.trim().length > 0) || errNode.textContent.trim();
+    return { valid: false, error: msg };
+  }
+  if (!doc.querySelector('mxfile')) {
+    return { valid: false, error: '缺少 <mxfile> 根元素，XML 結構不完整' };
+  }
+  return { valid: true };
+}
+
+// ─────────────────────────────────────────────
 //  Output Actions
 // ─────────────────────────────────────────────
-function extractXML(raw) {
-  const start = raw.indexOf('<mxfile');
-  const end = raw.lastIndexOf('</mxfile>');
-  if (start !== -1 && end !== -1) return raw.slice(start, end + 9);
-  // Fallback: return as-is
-  return raw;
-}
 
 function copyXML() {
   if (!generatedXML) return;
-  navigator.clipboard.writeText(extractXML(generatedXML)).then(() => {
+  const clean = cleanXML(generatedXML);
+  navigator.clipboard.writeText(clean).then(() => {
     const btn = document.getElementById('btnCopy');
     btn.textContent = '✓ 已複製';
     setTimeout(() => { btn.textContent = '複製 XML'; }, 2000);
@@ -635,11 +712,16 @@ function copyXML() {
 
 function downloadDrawio() {
   if (!generatedXML) return;
-  const xml = extractXML(generatedXML);
-  const blob = new Blob([xml], { type: 'application/octet-stream' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const clean = cleanXML(generatedXML);
+  const { valid, error: xmlErr } = validateXML(clean);
+  if (!valid) {
+    showGenStatus(`⚠️ XML 驗證失敗：${xmlErr}。仍嘗試下載，建議重新生成。`, 'warning');
+  }
+  const finalXML = clean || generatedXML;
+  const blob = new Blob([finalXML], { type: 'application/octet-stream' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
   a.download = `aws-architecture-${new Date().toISOString().slice(0,10)}.drawio`;
   document.body.appendChild(a);
   a.click();
@@ -649,20 +731,21 @@ function downloadDrawio() {
 
 function previewInDrawio() {
   if (!generatedXML) return;
-  const xml = extractXML(generatedXML);
-  try {
-    // diagrams.net supports URL fragment #xml=<url-encoded-xml>
-    const encoded = encodeURIComponent(xml);
-    const url = `https://app.diagrams.net/#xml=${encoded}`;
-    // For large diagrams, URL may exceed browser limits; fall back to download
-    if (url.length > 50000) {
-      alert('架構圖較大，已改為直接下載。請至 https://app.diagrams.net 開啟下載的檔案。');
-      downloadDrawio();
-    } else {
-      window.open(url, '_blank');
-    }
-  } catch(e) {
+  const clean = cleanXML(generatedXML);
+  const { valid, error: xmlErr } = validateXML(clean);
+  if (!valid) {
+    showGenStatus(`⚠️ XML 驗證失敗無法預覽：${xmlErr}。請重新生成或下載後手動修復。`, 'warning');
+    return;
+  }
+  // diagrams.net accepts #xml=<url-encoded-xml> (plain, no compression needed)
+  const encoded = encodeURIComponent(clean);
+  const previewUrl = `https://app.diagrams.net/#xml=${encoded}`;
+  if (previewUrl.length > 200000) {
+    // URL too large for browser — download instead and guide user
+    showGenStatus('📁 架構圖較大，已自動下載。請至 app.diagrams.net → File → Import From → Device', 'info');
     downloadDrawio();
+  } else {
+    window.open(previewUrl, '_blank');
   }
 }
 
