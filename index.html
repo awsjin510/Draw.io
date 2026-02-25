@@ -344,7 +344,7 @@ const SYSTEM_PROMPT = `你是一位 AWS 資深解決方案架構師，專精於�
 - 禁止輸出任何說明文字、前言、結語
 - 禁止使用 markdown 語法（禁止 \`\`\`xml、\`\`\` 等代碼塊）
 - 禁止輸出 XML 以外的任何內容
-- 你的回應必須直接從 host="app.diagrams.net" 的屬性繼續（因為 <mxfile 已由系統提供）
+- 你的回應必須直接以 <mxfile 開頭，不得有任何前綴文字
 
 【XML 跳脫規則 — 嚴格遵守，違反將導致檔案無法開啟】
 - 所有 XML 屬性值中的特殊字元必須正確跳脫：
@@ -355,7 +355,7 @@ const SYSTEM_PROMPT = `你是一位 AWS 資深解決方案架構師，專精於�
 - 嚴禁在任何屬性值中使用未跳脫的 & < > " 字元
 
 【架構規則】
-1. 繼續完成 <mxfile> XML，結構完整可直接在 diagrams.net / draw.io 桌面版開啟
+1. 輸出完整的 <mxfile> XML，結構完整可直接在 diagrams.net / draw.io 桌面版開啟
 2. 使用 mxgraph.aws4.* 官方圖示（shape=mxgraph.aws4.resourceIcon; resIcon=mxgraph.aws4.xxx）
 3. 包含：VPC 容器、至少 2 個 AZ、Public/Private/Isolated Subnet 分層
 4. 每個元件標示服務名稱與規格（t3.medium、db.r6g.large 等）
@@ -365,7 +365,7 @@ const SYSTEM_PROMPT = `你是一位 AWS 資深解決方案架構師，專精於�
 8. 所有 mxCell id 必須唯一，parent="1" 為根層級
 
 【必須完成的 XML 結構】
-host="app.diagrams.net" modified="2024-01-01T00:00:00.000Z" type="device" version="21.6.5">
+<mxfile host="app.diagrams.net" modified="2024-01-01T00:00:00.000Z" type="device" version="21.6.5">
   <diagram name="AWS Architecture" id="aws-arch">
     <mxGraphModel dx="1654" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -526,8 +526,7 @@ async function generateDiagram() {
   if (!desc) { showGenStatus('請輸入架構描述', 'warning'); return; }
 
   isGenerating = true;
-  // Prefill: Claude will continue from '<mxfile', so we start with it
-  generatedXML = '<mxfile';
+  generatedXML = '';
 
   // UI: loading state
   const btn = document.getElementById('generateBtn');
@@ -560,9 +559,7 @@ async function generateDiagram() {
         stream: true,
         system: SYSTEM_PROMPT,
         messages: [
-          { role: 'user', content: desc },
-          // Prefill: force Claude to continue from '<mxfile' — no preamble possible
-          { role: 'assistant', content: '<mxfile' }
+          { role: 'user', content: desc }
         ]
       })
     });
