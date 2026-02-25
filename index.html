@@ -527,7 +527,7 @@ async function generateDiagram() {
 
   isGenerating = true;
   // Prefill: Claude will continue from '<mxfile', so we start with it
-  generatedXML = '<mxfile ';
+  generatedXML = '<mxfile';
 
   // UI: loading state
   const btn = document.getElementById('generateBtn');
@@ -561,8 +561,8 @@ async function generateDiagram() {
         system: SYSTEM_PROMPT,
         messages: [
           { role: 'user', content: desc },
-          // Prefill: force Claude to continue from '<mxfile ' — no preamble possible
-          { role: 'assistant', content: '<mxfile ' }
+          // Prefill: force Claude to continue from '<mxfile' — no preamble possible
+          { role: 'assistant', content: '<mxfile' }
         ]
       })
     });
