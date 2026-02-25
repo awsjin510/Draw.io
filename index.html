@@ -697,19 +697,22 @@ function sanitizeXML(xml) {
   // Valid entities: &amp; &lt; &gt; &quot; &apos; &#123; &#x1A;
   xml = xml.replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[\da-fA-F]+;)/g, '&amp;');
 
-  // Fix unescaped < and > inside attribute values (label="A < B" → label="A &lt; B")
-  // Strategy: process each attribute value and escape < > that appear inside
-  xml = xml.replace(/((?:label|value|tooltip|placeholder)=")((?:[^"\\]|\\.)*)(")/g,
-    function(match, prefix, val, suffix) {
-      // Inside label/value attributes, escape < and > that aren't part of HTML tags
-      // But draw.io labels can contain HTML like <br>, <b>, <font> — leave those alone
-      // Only escape bare < > that would break XML parsing
-      const fixed = val
-        .replace(/<(?!\/?(?:br|b|i|u|font|div|span|p|hr|sub|sup|ul|ol|li|table|tr|td|th|img|a)\b[^>]*>)/gi, '&lt;')
-        .replace(/(?<!<\/?(?:br|b|i|u|font|div|span|p|hr|sub|sup|ul|ol|li|table|tr|td|th|img|a)[^>]*)>/gi, '&gt;');
-      return prefix + fixed + suffix;
+  // Fix unescaped < and > inside ALL attribute values
+  // label/value may contain draw.io HTML markup — keep allowed HTML tags, escape the rest
+  // All other attributes must not contain < > at all
+  xml = xml.replace(/(\w[\w-]*=")([^"]*)(")/g, function(match, prefix, val, suffix) {
+    const attrName = prefix.slice(0, -2).toLowerCase(); // strip trailing ="
+    const isHtmlAttr = attrName === 'label' || attrName === 'value';
+    let fixed;
+    if (isHtmlAttr) {
+      // escape < that are NOT part of allowed draw.io HTML tags
+      fixed = val.replace(/<(?!\/?(?:br|b|i|u|font|div|span|p|hr|sub|sup|ul|ol|li|table|tr|td|th|img|a)(?:\s[^>]*)?>)/gi, '&lt;');
+    } else {
+      // all other attributes: escape every < and >
+      fixed = val.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
-  );
+    return prefix + fixed + suffix;
+  });
 
   // If XML was truncated (no closing </mxfile>), try to close it
   if (xml.includes('<mxfile') && !xml.includes('</mxfile>')) {
