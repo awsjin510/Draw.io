@@ -1,5 +1,6 @@
 import { parseStringPromise } from 'xml2js';
 import { STANDARD_CONTAINER_POINTS } from '../templates/shapes';
+import pako from 'pako';
 
 export interface ValidationResult {
   valid: boolean;
@@ -191,7 +192,29 @@ export async function validateXml(xml: string): Promise<ValidationResult> {
     return { valid: false, errors: ['缺少 <diagram> 元素'] };
   }
 
-  const graphModel = (diagram['mxGraphModel'] as Record<string, unknown>[])?.[0];
+  // Support both compressed (base64 text) and uncompressed (child element) formats
+  let graphModel: Record<string, unknown> | undefined;
+
+  if (diagram['mxGraphModel']) {
+    // Uncompressed: <diagram><mxGraphModel>...</mxGraphModel></diagram>
+    graphModel = (diagram['mxGraphModel'] as Record<string, unknown>[])?.[0];
+  } else if (diagram['_']) {
+    // Compressed: <diagram>base64...</diagram>
+    try {
+      const base64 = (diagram['_'] as string).trim();
+      const compressed = Buffer.from(base64, 'base64');
+      const inflated = pako.inflateRaw(compressed, { to: 'string' });
+      const decoded = decodeURIComponent(inflated);
+      const innerParsed = await parseStringPromise(decoded, { explicitArray: true });
+      graphModel = innerParsed['mxGraphModel'] as Record<string, unknown>;
+    } catch (err) {
+      return {
+        valid: false,
+        errors: [`圖表內容解壓失敗：${(err as Error).message}`],
+      };
+    }
+  }
+
   if (!graphModel) {
     return { valid: false, errors: ['缺少 <mxGraphModel> 元素'] };
   }
