@@ -10,9 +10,9 @@ export interface GenerateOptions {
 }
 
 /**
- * Call Claude API with streaming to generate draw.io XML.
- * Uses adaptive thinking to produce better-structured architecture diagrams.
- * Only collects text blocks (not thinking blocks) as the XML output.
+ * Call Claude API with streaming to generate architecture JSON.
+ * Uses adaptive thinking to produce better-structured architecture designs.
+ * Only collects text blocks (not thinking blocks) as the JSON output.
  */
 export async function generateWithClaude(
   systemPrompt: string,
@@ -22,15 +22,15 @@ export async function generateWithClaude(
   const { verbose = false, onProgress } = options;
 
   if (verbose) {
-    process.stderr.write('[Claude] Starting XML generation...\n');
+    process.stderr.write('[Claude] Starting JSON generation...\n');
   }
 
-  let xmlOutput = '';
+  let output = '';
   let isInTextBlock = false;
 
   const stream = client.messages.stream({
     model: 'claude-opus-4-6',
-    max_tokens: 32000,
+    max_tokens: 16000,
     thinking: { type: 'enabled', budget_tokens: 10000 },
     system: systemPrompt,
     messages: [
@@ -52,7 +52,7 @@ export async function generateWithClaude(
 
       case 'content_block_delta':
         if (isInTextBlock && event.delta.type === 'text_delta') {
-          xmlOutput += event.delta.text;
+          output += event.delta.text;
           if (onProgress) {
             onProgress(event.delta.text);
           } else if (verbose) {
@@ -71,31 +71,31 @@ export async function generateWithClaude(
     process.stderr.write('\n[Claude] Generation complete.\n');
   }
 
-  return xmlOutput;
+  return output;
 }
 
 /**
- * Call Claude API with a correction prompt when initial XML fails validation.
- * Includes the original output and the validation error for Claude to fix.
+ * Call Claude API with a correction prompt when initial JSON fails validation.
+ * Includes the original output and the validation errors for Claude to fix.
  */
 export async function generateCorrectionWithClaude(
   systemPrompt: string,
   originalPrompt: string,
-  invalidXml: string,
+  invalidJson: string,
   errorMessage: string,
   options: GenerateOptions = {}
 ): Promise<string> {
-  const correctionPrompt = `你之前產生的 draw.io XML 有以下問題，請修正後重新輸出完整 XML：
+  const correctionPrompt = `你之前產生的架構 JSON 有以下問題，請修正後重新輸出完整 JSON：
 
 問題：${errorMessage}
 
 你之前的輸出（有問題的版本）：
-${invalidXml}
+${invalidJson}
 
 原始需求：
 ${originalPrompt}
 
-請直接輸出修正後的完整 XML，不要包含任何說明文字。`;
+請直接輸出修正後的完整 JSON，不要包含任何說明文字。`;
 
   return generateWithClaude(systemPrompt, correctionPrompt, options);
 }
