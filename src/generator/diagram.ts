@@ -2,6 +2,8 @@ import { generateWithClaude, generateCorrectionWithClaude } from '../api/claude'
 import { buildSystemPrompt } from '../templates/system-prompt';
 import { validateArchitectureJson, extractJson } from '../validator/json-validator';
 import { buildDrawioXml } from '../builder/xml-builder';
+import { validateXml } from '../validator/xml-validator';
+import { ArchitectureDiagram } from '../types/architecture';
 
 export interface DiagramGeneratorOptions {
   verbose?: boolean;
@@ -17,6 +19,33 @@ export interface GenerationResult {
 }
 
 const MAX_DEFAULT_RETRIES = 2;
+
+/**
+ * Build draw.io XML from architecture data and validate the output.
+ * Returns the XML string and any validation warnings.
+ */
+async function buildAndValidateXml(
+  data: ArchitectureDiagram,
+  verbose: boolean
+): Promise<{ xml: string; xmlWarnings: string[] }> {
+  const xml = buildDrawioXml(data);
+  const xmlWarnings: string[] = [];
+
+  const validation = await validateXml(xml);
+  if (!validation.valid) {
+    if (verbose) {
+      process.stderr.write('[Generator] XML validation warnings:\n');
+      for (const err of validation.errors) {
+        process.stderr.write(`  - ${err}\n`);
+      }
+    }
+    xmlWarnings.push(...validation.errors);
+  } else if (verbose) {
+    process.stderr.write('[Generator] XML validation passed.\n');
+  }
+
+  return { xml, xmlWarnings };
+}
 
 /**
  * Build the user prompt for diagram generation.
@@ -86,8 +115,8 @@ export async function generateDiagram(
     if (verbose) {
       process.stderr.write('[Generator] JSON valid. Building draw.io XML...\n');
     }
-    const xml = buildDrawioXml(result.data);
-    return { xml, attempts: 1, validationErrors: [] };
+    const { xml, xmlWarnings } = await buildAndValidateXml(result.data, verbose);
+    return { xml, attempts: 1, validationErrors: xmlWarnings };
   }
 
   lastErrors = result.errors;
@@ -127,11 +156,11 @@ export async function generateDiagram(
           `[Generator] Correction succeeded on attempt ${attempt + 1}. Building draw.io XML...\n`
         );
       }
-      const xml = buildDrawioXml(correctionResult.data);
+      const { xml, xmlWarnings } = await buildAndValidateXml(correctionResult.data, verbose);
       return {
         xml,
         attempts: attempt + 1,
-        validationErrors: [],
+        validationErrors: xmlWarnings,
       };
     }
 
@@ -154,11 +183,11 @@ export async function generateDiagram(
   try {
     const jsonStr = extractJson(lastRaw);
     const data = JSON.parse(jsonStr);
-    const xml = buildDrawioXml(data);
+    const { xml, xmlWarnings } = await buildAndValidateXml(data, verbose);
     return {
       xml,
       attempts: maxRetries + 1,
-      validationErrors: lastErrors,
+      validationErrors: [...lastErrors, ...xmlWarnings],
     };
   } catch {
     return {

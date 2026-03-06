@@ -44,22 +44,26 @@ function escapeXml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/'/g, '&apos;')
+    .replace(/\t/g, '&#x9;')
+    .replace(/\n/g, '&#xa;')
+    .replace(/\r/g, '&#xd;')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
 }
 
 function escapeAttr(str: string): string {
-  return escapeXml(str).replace(/\n/g, '&#xa;');
+  return escapeXml(str);
 }
 
 /**
- * Build a multi-line label for draw.io.
- * Escapes each part individually and joins with &#xa; (draw.io newline).
+ * Build a multi-line label for draw.io (html=1 mode).
+ * Escapes each part individually and joins with &lt;br&gt; for HTML line breaks.
  */
 function buildLabel(...parts: (string | undefined)[]): string {
   return parts
     .filter((p): p is string => !!p)
     .map((p) => escapeXml(p))
-    .join('&#xa;');
+    .join('&lt;br&gt;');
 }
 
 function generateId(): string {
