@@ -56,14 +56,15 @@ function escapeAttr(str: string): string {
 }
 
 /**
- * Build a multi-line label for draw.io (html=1 mode).
- * Escapes each part individually and joins with &lt;br&gt; for HTML line breaks.
+ * Build a multi-line label for draw.io.
+ * Escapes each part individually and joins with &#xa; (newline character reference).
+ * This is safe in XML attributes and works in both plain and html=1 modes.
  */
 function buildLabel(...parts: (string | undefined)[]): string {
   return parts
     .filter((p): p is string => !!p)
     .map((p) => escapeXml(p))
-    .join('&lt;br&gt;');
+    .join('&#xa;');
 }
 
 function generateId(): string {
