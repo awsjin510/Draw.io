@@ -1,6 +1,7 @@
 import { generateWithClaude, generateCorrectionWithClaude } from '../api/claude';
 import { buildSystemPrompt } from '../templates/system-prompt';
-import { autoFixXml, validateXml } from '../validator/xml-validator';
+import { validateArchitectureJson, extractJson } from '../validator/json-validator';
+import { buildDrawioXml } from '../builder/xml-builder';
 
 export interface DiagramGeneratorOptions {
   verbose?: boolean;
@@ -19,7 +20,6 @@ const MAX_DEFAULT_RETRIES = 2;
 
 /**
  * Build the user prompt for diagram generation.
- * Can optionally specify an architecture type for additional context.
  */
 export function buildUserPrompt(
   description: string,
@@ -29,7 +29,7 @@ export function buildUserPrompt(
     ? `架構類型：${archType}\n\n`
     : '';
 
-  return `${typeHint}請為以下需求產生 draw.io XML 架構圖：
+  return `${typeHint}請為以下需求產生架構 JSON：
 
 ${description}
 
@@ -37,18 +37,18 @@ ${description}
 - 依照 AWS Well-Architected Framework 六大支柱設計
 - 多 AZ 部署（至少 2 個可用區）
 - 正確的網路分層（Public / Private / Isolated Subnet）
-- 只輸出 XML，不含任何說明文字`;
+- 只輸出 JSON，不含任何說明文字`;
 }
 
 /**
  * Generate an AWS architecture diagram from a natural language description.
  *
  * Flow:
- * 1. Call Claude API with streaming to get raw XML
- * 2. Auto-fix the XML (extract from fences, fix points coordinates)
- * 3. Validate the fixed XML
- * 4. If validation fails, send correction prompt and retry
- * 5. Return the best valid XML
+ * 1. Call Claude API to get architecture JSON
+ * 2. Validate the JSON structure and references
+ * 3. If validation fails, send correction prompt and retry
+ * 4. Convert validated JSON to draw.io XML using the XML builder
+ * 5. Return guaranteed-valid draw.io XML
  */
 export async function generateDiagram(
   description: string,
@@ -63,30 +63,31 @@ export async function generateDiagram(
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(description);
 
-  let lastXml = '';
+  let lastRaw = '';
   let lastErrors: string[] = [];
 
   // Initial generation
   if (verbose) {
-    process.stderr.write('[Generator] Calling Claude API...\n');
+    process.stderr.write('[Generator] Calling Claude API for architecture JSON...\n');
   }
 
-  const rawXml = await generateWithClaude(systemPrompt, userPrompt, {
+  lastRaw = await generateWithClaude(systemPrompt, userPrompt, {
     verbose,
     onProgress,
   });
 
-  // Auto-fix: strip code fences and fix invalid point coordinates
-  lastXml = autoFixXml(rawXml);
-
   if (verbose) {
-    process.stderr.write('[Generator] Running XML validation...\n');
+    process.stderr.write('[Generator] Validating JSON structure...\n');
   }
 
-  const result = await validateXml(lastXml);
+  const result = validateArchitectureJson(lastRaw);
 
-  if (result.valid) {
-    return { xml: lastXml, attempts: 1, validationErrors: [] };
+  if (result.valid && result.data) {
+    if (verbose) {
+      process.stderr.write('[Generator] JSON valid. Building draw.io XML...\n');
+    }
+    const xml = buildDrawioXml(result.data);
+    return { xml, attempts: 1, validationErrors: [] };
   }
 
   lastErrors = result.errors;
@@ -112,23 +113,23 @@ export async function generateDiagram(
     const correctedRaw = await generateCorrectionWithClaude(
       systemPrompt,
       userPrompt,
-      lastXml,
+      lastRaw,
       `- ${errorSummary}`,
       { verbose, onProgress }
     );
 
-    lastXml = autoFixXml(correctedRaw);
+    lastRaw = correctedRaw;
+    const correctionResult = validateArchitectureJson(lastRaw);
 
-    const correctionResult = await validateXml(lastXml);
-
-    if (correctionResult.valid) {
+    if (correctionResult.valid && correctionResult.data) {
       if (verbose) {
         process.stderr.write(
-          `[Generator] Correction succeeded on attempt ${attempt + 1}.\n`
+          `[Generator] Correction succeeded on attempt ${attempt + 1}. Building draw.io XML...\n`
         );
       }
+      const xml = buildDrawioXml(correctionResult.data);
       return {
-        xml: lastXml,
+        xml,
         attempts: attempt + 1,
         validationErrors: [],
       };
@@ -143,16 +144,30 @@ export async function generateDiagram(
     }
   }
 
-  // Return best effort XML even if not fully valid
+  // Best effort: try to parse and build even with errors
   if (verbose) {
     process.stderr.write(
-      '[Generator] Returning best-effort XML with remaining validation issues.\n'
+      '[Generator] Max retries reached. Attempting best-effort build...\n'
     );
   }
 
-  return {
-    xml: lastXml,
-    attempts: maxRetries + 1,
-    validationErrors: lastErrors,
-  };
+  try {
+    const jsonStr = extractJson(lastRaw);
+    const data = JSON.parse(jsonStr);
+    const xml = buildDrawioXml(data);
+    return {
+      xml,
+      attempts: maxRetries + 1,
+      validationErrors: lastErrors,
+    };
+  } catch {
+    return {
+      xml: lastRaw,
+      attempts: maxRetries + 1,
+      validationErrors: [
+        ...lastErrors,
+        'JSON 解析失敗，無法產生 draw.io XML',
+      ],
+    };
+  }
 }
