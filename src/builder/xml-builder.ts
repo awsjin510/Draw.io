@@ -14,6 +14,7 @@ import {
   Connection,
 } from '../types/architecture';
 import { AWS_SHAPES, STANDARD_CONTAINER_POINTS } from '../templates/shapes';
+import pako from 'pako';
 
 // ── Layout constants ─────────────────────────────────────────────
 
@@ -382,19 +383,21 @@ export function buildDrawioXml(arch: ArchitectureDiagram): string {
     );
   }
 
-  // Assemble full draw.io XML
+  // Assemble the inner mxGraphModel XML
   const now = new Date().toISOString();
   const diagramId = generateId();
   const pageHeight = Math.max(PAGE_HEIGHT, layout.vpcHeight + VPC_Y + 200);
 
+  const graphModelXml = `<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${PAGE_WIDTH}" pageHeight="${pageHeight}" math="0" shadow="0"><root>${cells.join('')}</root></mxGraphModel>`;
+
+  // Compress to draw.io native format: URL-encode → deflate → base64
+  // This avoids all XML attribute escaping issues in the inner content
+  const encoded = encodeURIComponent(graphModelXml);
+  const compressed = pako.deflateRaw(new TextEncoder().encode(encoded));
+  const base64 = Buffer.from(compressed).toString('base64');
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="app.diagrams.net" modified="${now}" agent="AWS Diagram Generator" version="24.7.7" type="device">
-  <diagram id="${diagramId}" name="${escapeAttr(arch.title)}">
-    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${PAGE_WIDTH}" pageHeight="${pageHeight}" math="0" shadow="0">
-      <root>
-${cells.join('\n')}
-      </root>
-    </mxGraphModel>
-  </diagram>
+  <diagram id="${diagramId}" name="${escapeAttr(arch.title)}">${base64}</diagram>
 </mxfile>`;
 }
