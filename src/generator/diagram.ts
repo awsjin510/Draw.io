@@ -1,7 +1,7 @@
 import { generateWithClaude, generateCorrectionWithClaude } from '../api/claude';
 import { buildSystemPrompt } from '../templates/system-prompt';
 import { validateArchitectureJson, extractJson } from '../validator/json-validator';
-import { buildDrawioXml } from '../builder/xml-builder';
+import { buildDrawioXml, buildErrorDiagram } from '../builder/xml-builder';
 import { validateXml } from '../validator/xml-validator';
 import { ArchitectureDiagram } from '../types/architecture';
 
@@ -189,9 +189,14 @@ export async function generateDiagram(
       attempts: maxRetries + 1,
       validationErrors: [...lastErrors, ...xmlWarnings],
     };
-  } catch {
+  } catch (err) {
+    if (verbose) {
+      process.stderr.write(`[Generator] Best-effort build failed: ${(err as Error).message}\n`);
+    }
+    // NEVER return raw Claude text as XML — generate a valid error diagram instead
+    const errorXml = buildErrorDiagram('JSON 解析失敗，無法產生架構圖。請重試。');
     return {
-      xml: lastRaw,
+      xml: errorXml,
       attempts: maxRetries + 1,
       validationErrors: [
         ...lastErrors,

@@ -40,7 +40,8 @@ const EXTERNAL_GAP = 120;
 // ── Helpers ──────────────────────────────────────────────────────
 
 function escapeXml(str: string): string {
-  return str
+  const s = String(str ?? '');
+  return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -63,8 +64,8 @@ function escapeAttr(str: string): string {
  */
 function buildLabel(...parts: (string | undefined)[]): string {
   return parts
-    .filter((p): p is string => !!p)
-    .map((p) => escapeXml(p))
+    .filter((p) => p != null && p !== '')
+    .map((p) => escapeXml(String(p)))
     .join('&#xa;');
 }
 
@@ -399,5 +400,27 @@ export function buildDrawioXml(arch: ArchitectureDiagram): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="app.diagrams.net" modified="${now}" agent="AWS Diagram Generator" version="24.7.7" type="device">
   <diagram id="${diagramId}" name="${escapeAttr(arch.title)}">${base64}</diagram>
+</mxfile>`;
+}
+
+/**
+ * Generate a minimal valid .drawio XML with an error message.
+ * Used as a safe fallback when JSON parsing or XML building fails,
+ * ensuring we NEVER return raw text as XML.
+ */
+export function buildErrorDiagram(message: string): string {
+  const now = new Date().toISOString();
+  const diagramId = generateId();
+  const safeMessage = escapeXml(message);
+
+  const graphModelXml = `<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="error-box" value="${safeMessage}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="200" y="200" width="600" height="200" as="geometry"/></mxCell></root></mxGraphModel>`;
+
+  const encoded = encodeURIComponent(graphModelXml);
+  const compressed = pako.deflateRaw(new TextEncoder().encode(encoded));
+  const base64 = Buffer.from(compressed).toString('base64');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="${now}" agent="AWS Diagram Generator" version="24.7.7" type="device">
+  <diagram id="${diagramId}" name="Error">${base64}</diagram>
 </mxfile>`;
 }
