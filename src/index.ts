@@ -3,8 +3,10 @@
 import 'dotenv/config';
 import { Command } from 'commander';
 import chalk from 'chalk';
+import fs from 'fs';
 import { generateDiagram } from './generator/diagram';
 import { writeDrawioFile, generateFilename } from './utils/file-writer';
+import { validateXml } from './validator/xml-validator';
 
 const program = new Command();
 
@@ -25,11 +27,13 @@ program
   )
   .option('-r, --retries <number>', '驗證失敗時的最大重試次數', '2')
   .option('-v, --verbose', '顯示詳細的生成過程', false)
+  .option('--format <format>', 'XML 格式：compressed (預設) 或 uncompressed', 'compressed')
   .option('--no-write', '不寫入檔案，只輸出 XML 到 stdout')
   .action(async (description: string, options) => {
     const verbose: boolean = options.verbose;
     const maxRetries: number = parseInt(options.retries, 10);
     const archType: string = options.type;
+    const compressed: boolean = options.format !== 'uncompressed';
     const shouldWrite: boolean = options.write !== false;
 
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -66,6 +70,7 @@ program
       const result = await generateDiagram(description, {
         verbose,
         maxRetries,
+        compressed,
         onProgress: () => {
           lastProgressTime = Date.now();
         },
@@ -112,6 +117,33 @@ program
         console.error(error.stack);
       }
 
+      process.exit(1);
+    }
+  });
+
+program
+  .command('validate <file>')
+  .description('驗證 .drawio 檔案是否為合法 XML（含解壓縮 round-trip 測試）')
+  .action(async (file: string) => {
+    try {
+      const xml = fs.readFileSync(file, 'utf-8');
+      console.log(chalk.blue(`🔍 驗證檔案：${file}`));
+      console.log(chalk.gray(`   大小：${xml.length} 字元`));
+      console.log();
+
+      const result = await validateXml(xml);
+
+      if (result.valid) {
+        console.log(chalk.green('✅ XML 驗證通過（含解壓縮 round-trip）'));
+      } else {
+        console.log(chalk.red(`❌ XML 驗證失敗，共 ${result.errors.length} 個錯誤：`));
+        for (const err of result.errors) {
+          console.log(chalk.red(`   - ${err}`));
+        }
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error(chalk.red(`❌ 無法讀取檔案：${(err as Error).message}`));
       process.exit(1);
     }
   });

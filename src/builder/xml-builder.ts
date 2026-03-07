@@ -242,9 +242,16 @@ function buildRelativeGeometry(): string {
   return `<mxGeometry relative="1" as="geometry"/>`;
 }
 
+// ── Build options ────────────────────────────────────────────────
+
+export interface BuildXmlOptions {
+  /** Use draw.io native compressed format (default: true) */
+  compressed?: boolean;
+}
+
 // ── Main builder ─────────────────────────────────────────────────
 
-export function buildDrawioXml(arch: ArchitectureDiagram): string {
+export function buildDrawioXml(arch: ArchitectureDiagram, options?: BuildXmlOptions): string {
   const layout = calculateLayout(arch);
   const cells: string[] = [];
 
@@ -391,8 +398,15 @@ export function buildDrawioXml(arch: ArchitectureDiagram): string {
 
   const graphModelXml = `<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${PAGE_WIDTH}" pageHeight="${pageHeight}" math="0" shadow="0"><root>${cells.join('')}</root></mxGraphModel>`;
 
-  // Compress to draw.io native format: URL-encode → deflate → base64
-  // This avoids all XML attribute escaping issues in the inner content
+  if (options?.compressed === false) {
+    // Uncompressed: embed inner XML directly inside <diagram>
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="${now}" agent="AWS Diagram Generator" version="24.7.7" type="device">
+  <diagram id="${diagramId}" name="${escapeAttr(arch.title)}">${graphModelXml}</diagram>
+</mxfile>`;
+  }
+
+  // Compressed: URL-encode → deflate → base64 (draw.io native format)
   const encoded = encodeURIComponent(graphModelXml);
   const compressed = pako.deflateRaw(new TextEncoder().encode(encoded));
   const base64 = Buffer.from(compressed).toString('base64');
@@ -408,12 +422,19 @@ export function buildDrawioXml(arch: ArchitectureDiagram): string {
  * Used as a safe fallback when JSON parsing or XML building fails,
  * ensuring we NEVER return raw text as XML.
  */
-export function buildErrorDiagram(message: string): string {
+export function buildErrorDiagram(message: string, options?: BuildXmlOptions): string {
   const now = new Date().toISOString();
   const diagramId = generateId();
   const safeMessage = escapeXml(message);
 
   const graphModelXml = `<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="error-box" value="${safeMessage}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="200" y="200" width="600" height="200" as="geometry"/></mxCell></root></mxGraphModel>`;
+
+  if (options?.compressed === false) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="${now}" agent="AWS Diagram Generator" version="24.7.7" type="device">
+  <diagram id="${diagramId}" name="Error">${graphModelXml}</diagram>
+</mxfile>`;
+  }
 
   const encoded = encodeURIComponent(graphModelXml);
   const compressed = pako.deflateRaw(new TextEncoder().encode(encoded));

@@ -1,13 +1,15 @@
 import { generateWithClaude, generateCorrectionWithClaude } from '../api/claude';
 import { buildSystemPrompt } from '../templates/system-prompt';
 import { validateArchitectureJson, extractJson } from '../validator/json-validator';
-import { buildDrawioXml, buildErrorDiagram } from '../builder/xml-builder';
+import { buildDrawioXml, buildErrorDiagram, BuildXmlOptions } from '../builder/xml-builder';
 import { validateXml } from '../validator/xml-validator';
 import { ArchitectureDiagram } from '../types/architecture';
 
 export interface DiagramGeneratorOptions {
   verbose?: boolean;
   maxRetries?: number;
+  /** Use compressed format (default: true). Set false for uncompressed XML. */
+  compressed?: boolean;
   onProgress?: (text: string) => void;
 }
 
@@ -26,9 +28,10 @@ const MAX_DEFAULT_RETRIES = 2;
  */
 async function buildAndValidateXml(
   data: ArchitectureDiagram,
-  verbose: boolean
+  verbose: boolean,
+  xmlOptions?: BuildXmlOptions
 ): Promise<{ xml: string; xmlWarnings: string[] }> {
-  const xml = buildDrawioXml(data);
+  const xml = buildDrawioXml(data, xmlOptions);
   const xmlWarnings: string[] = [];
 
   const validation = await validateXml(xml);
@@ -86,8 +89,11 @@ export async function generateDiagram(
   const {
     verbose = false,
     maxRetries = MAX_DEFAULT_RETRIES,
+    compressed = true,
     onProgress,
   } = options;
+
+  const xmlOptions: BuildXmlOptions = { compressed };
 
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(description);
@@ -115,7 +121,7 @@ export async function generateDiagram(
     if (verbose) {
       process.stderr.write('[Generator] JSON valid. Building draw.io XML...\n');
     }
-    const { xml, xmlWarnings } = await buildAndValidateXml(result.data, verbose);
+    const { xml, xmlWarnings } = await buildAndValidateXml(result.data, verbose, xmlOptions);
     return { xml, attempts: 1, validationErrors: xmlWarnings };
   }
 
@@ -156,7 +162,7 @@ export async function generateDiagram(
           `[Generator] Correction succeeded on attempt ${attempt + 1}. Building draw.io XML...\n`
         );
       }
-      const { xml, xmlWarnings } = await buildAndValidateXml(correctionResult.data, verbose);
+      const { xml, xmlWarnings } = await buildAndValidateXml(correctionResult.data, verbose, xmlOptions);
       return {
         xml,
         attempts: attempt + 1,
@@ -183,7 +189,7 @@ export async function generateDiagram(
   try {
     const jsonStr = extractJson(lastRaw);
     const data = JSON.parse(jsonStr);
-    const { xml, xmlWarnings } = await buildAndValidateXml(data, verbose);
+    const { xml, xmlWarnings } = await buildAndValidateXml(data, verbose, xmlOptions);
     return {
       xml,
       attempts: maxRetries + 1,
@@ -194,7 +200,7 @@ export async function generateDiagram(
       process.stderr.write(`[Generator] Best-effort build failed: ${(err as Error).message}\n`);
     }
     // NEVER return raw Claude text as XML — generate a valid error diagram instead
-    const errorXml = buildErrorDiagram('JSON 解析失敗，無法產生架構圖。請重試。');
+    const errorXml = buildErrorDiagram('JSON 解析失敗，無法產生架構圖。請重試。', xmlOptions);
     return {
       xml: errorXml,
       attempts: maxRetries + 1,
