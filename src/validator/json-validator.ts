@@ -102,10 +102,18 @@ export function validateArchitectureJson(
       checkId(ext.id, `externalComponent "${ext.label || '?'}"`);
       if (!ext.service) {
         errors.push(`externalComponent "${ext.id}" 缺少 service`);
+      } else if (typeof ext.service !== 'string') {
+        errors.push(`externalComponent "${ext.id}" 的 service 必須是字串`);
       } else if (!AWS_SHAPES[ext.service]) {
         errors.push(
           `externalComponent "${ext.id}" 的 service "${ext.service}" 不存在於 AWS_SHAPES 中。可用值：${Object.keys(AWS_SHAPES).join(', ')}`
         );
+      }
+      if (ext.label != null && typeof ext.label !== 'string') {
+        errors.push(`externalComponent "${ext.id}" 的 label 必須是字串`);
+      }
+      if (ext.specs != null && typeof ext.specs !== 'string') {
+        errors.push(`externalComponent "${ext.id}" 的 specs 必須是字串`);
       }
     }
   }
@@ -120,7 +128,14 @@ export function validateArchitectureJson(
       }
       subnetIds.add(subnet.id);
 
-      if (!subnet.name) errors.push(`subnet "${subnet.id}" 缺少 name`);
+      if (!subnet.name) {
+        errors.push(`subnet "${subnet.id}" 缺少 name`);
+      } else if (typeof subnet.name !== 'string') {
+        errors.push(`subnet "${subnet.id}" 的 name 必須是字串`);
+      }
+      if (subnet.cidr != null && typeof subnet.cidr !== 'string') {
+        errors.push(`subnet "${subnet.id}" 的 cidr 必須是字串`);
+      }
       if (!['public', 'private', 'isolated'].includes(subnet.type)) {
         errors.push(
           `subnet "${subnet.id}" 的 type "${subnet.type}" 無效，必須為 public/private/isolated`
@@ -132,10 +147,18 @@ export function validateArchitectureJson(
           checkId(comp.id, `component "${comp.label || '?'}"`);
           if (!comp.service) {
             errors.push(`component "${comp.id}" 缺少 service`);
+          } else if (typeof comp.service !== 'string') {
+            errors.push(`component "${comp.id}" 的 service 必須是字串`);
           } else if (!AWS_SHAPES[comp.service]) {
             errors.push(
               `component "${comp.id}" 的 service "${comp.service}" 不存在於 AWS_SHAPES 中。可用值：${Object.keys(AWS_SHAPES).join(', ')}`
             );
+          }
+          if (comp.label != null && typeof comp.label !== 'string') {
+            errors.push(`component "${comp.id}" 的 label 必須是字串`);
+          }
+          if (comp.specs != null && typeof comp.specs !== 'string') {
+            errors.push(`component "${comp.id}" 的 specs 必須是字串`);
           }
         }
       }
@@ -165,6 +188,8 @@ export function validateArchitectureJson(
       }
       if (!conn.label) {
         errors.push(`connection ${conn.from} → ${conn.to} 缺少 label`);
+      } else if (typeof conn.label !== 'string') {
+        errors.push(`connection ${conn.from} → ${conn.to} 的 label 必須是字串`);
       }
     }
   }
