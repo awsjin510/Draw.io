@@ -13,14 +13,14 @@ function ensureOutputDir(): void {
 }
 
 /**
- * Write the generated draw.io XML to a .drawio file.
+ * Write diagram content to a file.
  * Returns the absolute path of the written file.
  */
-export function writeDrawioFile(xml: string, filename: string): string {
+export function writeDiagramFile(content: string, filename: string, extension: string = '.drawio'): string {
   ensureOutputDir();
 
-  // Ensure the filename ends with .drawio
-  const baseName = filename.endsWith('.drawio') ? filename : `${filename}.drawio`;
+  // Ensure the filename ends with the correct extension
+  const baseName = filename.endsWith(extension) ? filename : `${filename}${extension}`;
 
   // Sanitize filename: remove path traversal characters
   const safeName = path.basename(baseName);
@@ -29,17 +29,22 @@ export function writeDrawioFile(xml: string, filename: string): string {
   }
 
   const outputPath = path.join(OUTPUT_DIR, safeName);
-  fs.writeFileSync(outputPath, xml, 'utf-8');
+  fs.writeFileSync(outputPath, content, 'utf-8');
   return outputPath;
 }
 
+/** @deprecated Use writeDiagramFile instead */
+export function writeDrawioFile(xml: string, filename: string): string {
+  return writeDiagramFile(xml, filename, '.drawio');
+}
+
 /**
- * Generate a timestamped filename for the output file.
+ * Generate a timestamped filename for the output file (without extension).
  */
 export function generateFilename(prefix = 'aws-diagram'): string {
   const timestamp = new Date()
     .toISOString()
     .replace(/[:.]/g, '-')
     .slice(0, 19);
-  return `${prefix}-${timestamp}.drawio`;
+  return `${prefix}-${timestamp}`;
 }

@@ -2,14 +2,19 @@ import { generateWithClaude, generateCorrectionWithClaude } from '../api/claude'
 import { buildSystemPrompt } from '../templates/system-prompt';
 import { validateArchitectureJson, extractJson } from '../validator/json-validator';
 import { buildDrawioXml, buildErrorDiagram, BuildXmlOptions } from '../builder/xml-builder';
+import { buildPlantUml } from '../builder/plantuml-builder';
 import { validateXml } from '../validator/xml-validator';
 import { ArchitectureDiagram } from '../types/architecture';
+
+export type OutputFormat = 'drawio' | 'plantuml';
 
 export interface DiagramGeneratorOptions {
   verbose?: boolean;
   maxRetries?: number;
-  /** Use compressed format (default: true). Set false for uncompressed XML. */
+  /** Use compressed format for drawio (default: true). */
   compressed?: boolean;
+  /** Output format: 'drawio' or 'plantuml' (default: 'plantuml') */
+  outputFormat?: OutputFormat;
   onProgress?: (text: string) => void;
 }
 
@@ -23,16 +28,26 @@ export interface GenerationResult {
 const MAX_DEFAULT_RETRIES = 2;
 
 /**
- * Build draw.io XML from architecture data and validate the output.
- * Returns the XML string and any validation warnings.
+ * Build diagram output from architecture data.
+ * For drawio: builds XML and validates. For plantuml: builds text (no validation needed).
  */
-async function buildAndValidateXml(
+async function buildDiagramOutput(
   data: ArchitectureDiagram,
   verbose: boolean,
+  outputFormat: OutputFormat,
   xmlOptions?: BuildXmlOptions
-): Promise<{ xml: string; xmlWarnings: string[] }> {
+): Promise<{ output: string; warnings: string[] }> {
+  if (outputFormat === 'plantuml') {
+    const output = buildPlantUml(data);
+    if (verbose) {
+      process.stderr.write('[Generator] PlantUML output generated.\n');
+    }
+    return { output, warnings: [] };
+  }
+
+  // drawio format
   const xml = buildDrawioXml(data, xmlOptions);
-  const xmlWarnings: string[] = [];
+  const warnings: string[] = [];
 
   const validation = await validateXml(xml);
   if (!validation.valid) {
@@ -42,12 +57,12 @@ async function buildAndValidateXml(
         process.stderr.write(`  - ${err}\n`);
       }
     }
-    xmlWarnings.push(...validation.errors);
+    warnings.push(...validation.errors);
   } else if (verbose) {
     process.stderr.write('[Generator] XML validation passed.\n');
   }
 
-  return { xml, xmlWarnings };
+  return { output: xml, warnings };
 }
 
 /**
@@ -79,17 +94,18 @@ ${description}
  * 1. Call Claude API to get architecture JSON
  * 2. Validate the JSON structure and references
  * 3. If validation fails, send correction prompt and retry
- * 4. Convert validated JSON to draw.io XML using the XML builder
- * 5. Return guaranteed-valid draw.io XML
+ * 4. Convert validated JSON to diagram output (PlantUML or draw.io XML)
+ * 5. Return diagram content
  */
 export async function generateDiagram(
   description: string,
   options: DiagramGeneratorOptions = {}
-): Promise<{ xml: string; attempts: number; validationErrors: string[] }> {
+): Promise<{ output: string; attempts: number; validationErrors: string[] }> {
   const {
     verbose = false,
     maxRetries = MAX_DEFAULT_RETRIES,
     compressed = true,
+    outputFormat = 'plantuml',
     onProgress,
   } = options;
 
@@ -119,10 +135,10 @@ export async function generateDiagram(
 
   if (result.valid && result.data) {
     if (verbose) {
-      process.stderr.write('[Generator] JSON valid. Building draw.io XML...\n');
+      process.stderr.write(`[Generator] JSON valid. Building ${outputFormat} output...\n`);
     }
-    const { xml, xmlWarnings } = await buildAndValidateXml(result.data, verbose, xmlOptions);
-    return { xml, attempts: 1, validationErrors: xmlWarnings };
+    const { output, warnings } = await buildDiagramOutput(result.data, verbose, outputFormat, xmlOptions);
+    return { output, attempts: 1, validationErrors: warnings };
   }
 
   lastErrors = result.errors;
@@ -162,11 +178,11 @@ export async function generateDiagram(
           `[Generator] Correction succeeded on attempt ${attempt + 1}. Building draw.io XML...\n`
         );
       }
-      const { xml, xmlWarnings } = await buildAndValidateXml(correctionResult.data, verbose, xmlOptions);
+      const { output, warnings } = await buildDiagramOutput(correctionResult.data, verbose, outputFormat, xmlOptions);
       return {
-        xml,
+        output,
         attempts: attempt + 1,
-        validationErrors: xmlWarnings,
+        validationErrors: warnings,
       };
     }
 
@@ -189,25 +205,29 @@ export async function generateDiagram(
   try {
     const jsonStr = extractJson(lastRaw);
     const data = JSON.parse(jsonStr);
-    const { xml, xmlWarnings } = await buildAndValidateXml(data, verbose, xmlOptions);
+    const { output, warnings } = await buildDiagramOutput(data, verbose, outputFormat, xmlOptions);
     return {
-      xml,
+      output,
       attempts: maxRetries + 1,
-      validationErrors: [...lastErrors, ...xmlWarnings],
+      validationErrors: [...lastErrors, ...warnings],
     };
   } catch (err) {
     if (verbose) {
       process.stderr.write(`[Generator] Best-effort build failed: ${(err as Error).message}\n`);
     }
-    // NEVER return raw Claude text as XML — generate a valid error diagram instead
+    // Fallback error output
+    if (outputFormat === 'plantuml') {
+      return {
+        output: `@startuml Error\nnote "JSON 解析失敗，無法產生架構圖。請重試。" as N1\n@enduml`,
+        attempts: maxRetries + 1,
+        validationErrors: [...lastErrors, 'JSON 解析失敗'],
+      };
+    }
     const errorXml = buildErrorDiagram('JSON 解析失敗，無法產生架構圖。請重試。', xmlOptions);
     return {
-      xml: errorXml,
+      output: errorXml,
       attempts: maxRetries + 1,
-      validationErrors: [
-        ...lastErrors,
-        'JSON 解析失敗，無法產生 draw.io XML',
-      ],
+      validationErrors: [...lastErrors, 'JSON 解析失敗，無法產生 draw.io XML'],
     };
   }
 }

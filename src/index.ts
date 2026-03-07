@@ -4,8 +4,8 @@ import 'dotenv/config';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs';
-import { generateDiagram } from './generator/diagram';
-import { writeDrawioFile, generateFilename } from './utils/file-writer';
+import { generateDiagram, OutputFormat } from './generator/diagram';
+import { writeDiagramFile, generateFilename } from './utils/file-writer';
 import { validateXml } from './validator/xml-validator';
 
 const program = new Command();
@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name('aws-diagram')
   .description(
-    'AWS 雲端架構圖產生器 — 使用 Claude API 自動產出 draw.io XML 格式的 AWS 架構圖'
+    'AWS 雲端架構圖產生器 — 使用 Claude API 自動產出 PlantUML 或 draw.io 格式的 AWS 架構圖'
   )
   .version('1.0.0');
 
@@ -27,14 +27,17 @@ program
   )
   .option('-r, --retries <number>', '驗證失敗時的最大重試次數', '2')
   .option('-v, --verbose', '顯示詳細的生成過程', false)
-  .option('--format <format>', 'XML 格式：compressed (預設) 或 uncompressed', 'compressed')
-  .option('--no-write', '不寫入檔案，只輸出 XML 到 stdout')
+  .option('--output-format <format>', '輸出格式：plantuml (預設) 或 drawio', 'plantuml')
+  .option('--format <format>', 'draw.io XML 格式：compressed (預設) 或 uncompressed', 'compressed')
+  .option('--no-write', '不寫入檔案，只輸出到 stdout')
   .action(async (description: string, options) => {
     const verbose: boolean = options.verbose;
     const maxRetries: number = parseInt(options.retries, 10);
     const archType: string = options.type;
+    const outputFormat: OutputFormat = options.outputFormat === 'drawio' ? 'drawio' : 'plantuml';
     const compressed: boolean = options.format !== 'uncompressed';
     const shouldWrite: boolean = options.write !== false;
+    const fileExtension = outputFormat === 'plantuml' ? '.puml' : '.drawio';
 
     if (!process.env.ANTHROPIC_API_KEY) {
       console.error(
@@ -49,6 +52,7 @@ program
     console.log(chalk.blue('🚀 AWS 架構圖產生器'));
     console.log(chalk.gray(`需求：${description}`));
     console.log(chalk.gray(`架構類型：${archType}`));
+    console.log(chalk.gray(`輸出格式：${outputFormat}`));
     console.log();
 
     try {
@@ -56,7 +60,6 @@ program
       let progressIdx = 0;
       let lastProgressTime = Date.now();
 
-      // Show spinner during generation
       const spinner = setInterval(() => {
         if (Date.now() - lastProgressTime > 200) {
           process.stdout.write(
@@ -71,6 +74,7 @@ program
         verbose,
         maxRetries,
         compressed,
+        outputFormat,
         onProgress: () => {
           lastProgressTime = Date.now();
         },
@@ -91,23 +95,28 @@ program
         }
         console.log();
       } else {
-        console.log(chalk.green(`✅ XML 驗證通過`));
+        console.log(chalk.green(`✅ 生成完成`));
       }
 
       console.log(chalk.gray(`   嘗試次數：${result.attempts}`));
-      console.log(chalk.gray(`   XML 大小：${result.xml.length} 字元`));
+      console.log(chalk.gray(`   輸出大小：${result.output.length} 字元`));
       console.log();
 
       if (shouldWrite) {
         const filename = options.output || generateFilename(`aws-${archType}`);
-        const outputPath = writeDrawioFile(result.xml, filename);
+        const outputPath = writeDiagramFile(result.output, filename, fileExtension);
         console.log(chalk.green(`📁 已儲存至：${outputPath}`));
-        console.log(
-          chalk.gray('   可直接用 draw.io 桌面版或 diagrams.net 開啟。')
-        );
+        if (outputFormat === 'plantuml') {
+          console.log(
+            chalk.gray('   可貼到 https://www.plantuml.com/plantuml 渲染，或使用 PlantUML 工具。')
+          );
+        } else {
+          console.log(
+            chalk.gray('   可直接用 draw.io 桌面版或 diagrams.net 開啟。')
+          );
+        }
       } else {
-        // Output XML to stdout when --no-write is specified
-        process.stdout.write(result.xml + '\n');
+        process.stdout.write(result.output + '\n');
       }
     } catch (err) {
       const error = err as Error;
