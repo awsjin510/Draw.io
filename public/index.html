@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Architecture Diagram Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>⚡ AWS Architecture Diagram Generator</h1>
+  </header>
+
+  <main>
+    <section class="presets-section">
+      <h2>選擇預設情境或自行描述</h2>
+      <div id="preset-cards" class="card-grid"></div>
+    </section>
+
+    <section class="input-section">
+      <textarea
+        id="description"
+        placeholder="請描述你的 AWS 架構需求，例如：高可用的電商網站，包含 CDN、負載平衡、自動擴展的 Web 伺服器、資料庫主從架構..."
+        rows="4"
+      ></textarea>
+      <button id="generate-btn" class="btn-generate">🚀 生成架構圖</button>
+    </section>
+
+    <section id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <p>正在生成架構圖，可能需要 30-60 秒，請稍候...</p>
+    </section>
+
+    <section id="error" class="error-section hidden">
+      <p id="error-message"></p>
+    </section>
+
+    <section id="warnings" class="warnings-section hidden">
+      <h3>⚠️ 驗證警告</h3>
+      <ul id="warning-list"></ul>
+    </section>
+
+    <section id="result" class="result-section hidden">
+      <h2>架構圖</h2>
+      <div class="diagram-container">
+        <img id="diagram-img" alt="AWS Architecture Diagram" />
+        <div id="diagram-error" class="diagram-error hidden">
+          <p>圖片渲染失敗，請嘗試「顯示原始碼」查看 PlantUML 文字</p>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button id="download-btn" class="btn-action">📥 下載 .puml</button>
+        <button id="toggle-source-btn" class="btn-action">📝 顯示原始碼</button>
+      </div>
+      <div id="source-section" class="source-section hidden">
+        <pre id="source-code"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
